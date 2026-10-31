@@ -21,9 +21,9 @@ lives in [Codedynasty-project](https://github.com/Kingmanne/Codedynasty-project)
 
 ## Phases
 
-- [ ] **Phase 1 - Infrastructure:** VPC, EC2 + k3s, ECR, state bucket, budget alert
-- [ ] Phase 2 - Containers: the four Lambda functions as Express apps with Dockerfiles
-- [ ] Phase 3 - Data and queue: PostgreSQL, SQS, KEDA
+- [x] **Phase 1 - Infrastructure:** VPC, EC2 + k3s, ECR, state bucket, budget alert
+- [ ] **Phase 2 - Containers:** the four Lambda functions as Express services, PostgreSQL, SQS, Ingress ([guide](docs/phase-2.md))
+- [ ] Phase 3 - Scaling and security: KEDA autoscaling, External Secrets from SSM, NetworkPolicies
 - [ ] Phase 4 - Pipeline: GitHub Actions + Argo CD
 - [ ] Phase 5 - Monitoring: Prometheus, Grafana, DLQ alert
 

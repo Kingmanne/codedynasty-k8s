@@ -42,3 +42,9 @@ variable "ecr_repositories" {
   type        = list(string)
   default     = ["signup-api", "signup-worker", "login", "list-users"]
 }
+
+variable "ecr_credential_provider_version" {
+  description = "Version of the Kubernetes ECR credential provider the node installs at boot"
+  type        = string
+  default     = "v1.31.0"
+}

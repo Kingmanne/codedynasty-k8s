@@ -22,3 +22,12 @@ output "stop_node" {
   description = "Stop the node when you finish for the day (saves most of the cost)"
   value       = "aws ec2 stop-instances --instance-ids ${aws_instance.k3s.id} --region ${var.region}"
 }
+
+output "signup_queue_url" {
+  description = "Goes in k8s/config.yaml as SQS_QUEUE_URL"
+  value       = aws_sqs_queue.signup.url
+}
+
+output "signup_dlq_url" {
+  value = aws_sqs_queue.signup_dlq.url
+}

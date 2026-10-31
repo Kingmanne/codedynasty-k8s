@@ -1,14 +1,63 @@
 #!/bin/bash
-# Runs once on first boot: installs k3s.
+# Runs once on first boot: sets up swap, the ECR image credential provider, then k3s.
+# Output is logged to /var/log/cloud-init-output.log on the node.
+# Note: this is a Terraform template. ${public_ip} is filled in by Terraform;
+# plain bash variables are written $LIKE_THIS (no braces) so Terraform ignores them.
 set -euo pipefail
 
-# Small swap file as a safety net on a 4 GB machine
+# --- Swap: a safety net on a 4 GB machine -----------------------------------
 fallocate -l 2G /swapfile
 chmod 600 /swapfile
 mkswap /swapfile
 swapon /swapfile
 echo '/swapfile none swap sw 0 0' >> /etc/fstab
 
-# Install k3s. --tls-san adds the Elastic IP to the API certificate,
-# so kubectl on your laptop can connect to https://${public_ip}:6443
-curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --tls-san ${public_ip} --write-kubeconfig-mode 600" sh -
+# --- ECR credential provider ---------------------------------------------------
+# Lets the kubelet pull images from your private ECR using the node's IAM role,
+# fetching fresh login tokens automatically (ECR tokens expire every 12 hours).
+PROVIDER_VERSION="${ecr_provider_version}"
+PROVIDER_DIR=/opt/ecr-credential-provider
+PROVIDER_URL="https://storage.googleapis.com/k8s-artifacts-prod/binaries/cloud-provider-aws/$PROVIDER_VERSION/linux/amd64/ecr-credential-provider-linux-amd64"
+ECR_OK=false
+
+mkdir -p $PROVIDER_DIR /etc/rancher/k3s
+if curl -fsSL -o $PROVIDER_DIR/ecr-credential-provider "$PROVIDER_URL"; then
+  chmod 755 $PROVIDER_DIR/ecr-credential-provider
+  ECR_OK=true
+  echo "ECR credential provider $PROVIDER_VERSION installed"
+else
+  echo "WARNING: could not download the ECR credential provider from $PROVIDER_URL"
+fi
+
+cat > /etc/rancher/k3s/ecr-credential-provider.yaml <<'EOF'
+apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: ecr-credential-provider
+    matchImages:
+      - "*.dkr.ecr.*.amazonaws.com"
+    defaultCacheDuration: "12h"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+EOF
+
+# --- k3s configuration ---------------------------------------------------------
+# tls-san adds the Elastic IP to the API certificate, so kubectl on your laptop
+# can connect to https://${public_ip}:6443
+cat > /etc/rancher/k3s/config.yaml <<'EOF'
+tls-san:
+  - "${public_ip}"
+write-kubeconfig-mode: "0600"
+EOF
+
+# Only point the kubelet at the provider if the download worked,
+# so a failed download never stops k3s from starting
+if [ "$ECR_OK" = true ]; then
+  cat >> /etc/rancher/k3s/config.yaml <<'EOF'
+kubelet-arg:
+  - "image-credential-provider-bin-dir=/opt/ecr-credential-provider"
+  - "image-credential-provider-config=/etc/rancher/k3s/ecr-credential-provider.yaml"
+EOF
+fi
+
+# --- Install k3s (reads /etc/rancher/k3s/config.yaml) --------------------------
+curl -sfL https://get.k3s.io | sh -s - server

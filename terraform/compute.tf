@@ -53,7 +53,8 @@ resource "aws_instance" "k3s" {
   iam_instance_profile   = aws_iam_instance_profile.node.name
 
   user_data = templatefile("${path.module}/user_data.sh.tftpl", {
-    public_ip = aws_eip.node.public_ip
+    public_ip            = aws_eip.node.public_ip
+    ecr_provider_version = var.ecr_credential_provider_version
   })
   user_data_replace_on_change = true
 
@@ -64,7 +65,8 @@ resource "aws_instance" "k3s" {
   }
 
   metadata_options {
-    http_tokens = "required" # IMDSv2 only (security best practice)
+    http_tokens                 = "required" # IMDSv2 only (security best practice)
+    http_put_response_hop_limit = 2          # lets Pods (one network hop further away) use the node's IAM role
   }
 
   tags = { Name = "codedynasty-k3s" }

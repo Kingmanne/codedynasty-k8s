@@ -1,0 +1,65 @@
+# signup-worker: Reads SQS and saves users to PostgreSQL (replaces signup-worker Lambda)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: signup-worker
+automountServiceAccountToken: false # the app never calls the Kubernetes API
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: signup-worker
+  labels:
+    app: signup-worker
+spec:
+  replicas: 1 # one copy each to fit the 4 GB node; raise to 2 for zero-downtime updates
+  selector:
+    matchLabels:
+      app: signup-worker
+  template:
+    metadata:
+      labels:
+        app: signup-worker
+    spec:
+      serviceAccountName: signup-worker
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: signup-worker
+          image: signup-worker # placeholder: kustomization.yaml swaps in the ECR image and tag
+          ports:
+            - name: health
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: app-config
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              memory: 192Mi
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000 # the "node" user in the official Node.js image
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]

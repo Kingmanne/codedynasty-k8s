@@ -1,0 +1,32 @@
+# Routes public HTTP traffic to the services: replaces API Gateway's three routes.
+# Traefik (built into k3s) listens on the node's port 80 and applies these rules.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: codedynasty-api
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - path: /signup
+            pathType: Prefix
+            backend:
+              service:
+                name: signup-api
+                port:
+                  number: 80
+          - path: /login
+            pathType: Prefix
+            backend:
+              service:
+                name: login
+                port:
+                  number: 80
+          - path: /users
+            pathType: Prefix
+            backend:
+              service:
+                name: list-users
+                port:
+                  number: 80
