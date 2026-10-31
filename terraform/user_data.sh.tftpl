@@ -1,0 +1,14 @@
+#!/bin/bash
+# Runs once on first boot: installs k3s.
+set -euo pipefail
+
+# Small swap file as a safety net on a 4 GB machine
+fallocate -l 2G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+# Install k3s. --tls-san adds the Elastic IP to the API certificate,
+# so kubectl on your laptop can connect to https://${public_ip}:6443
+curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --tls-san ${public_ip} --write-kubeconfig-mode 600" sh -

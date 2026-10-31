@@ -1,0 +1,17 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+*.tfplan
+
+# Kubernetes credentials
+kubeconfig*
+*.kubeconfig
+
+# Node / env
+node_modules/
+.env
+.env.local
