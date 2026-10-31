@@ -11,7 +11,7 @@ terraform {
   # Replace the bucket name with the "state_bucket" output from bootstrap/.
   # use_lockfile = native S3 state locking (no DynamoDB lock table needed).
   backend "s3" {
-    bucket       = "codedynasty-tfstate-REPLACE_WITH_ACCOUNT_ID"
+    bucket       = "codedynasty-tfstate-371510064293"
     key          = "phase1/terraform.tfstate"
     region       = "eu-west-2"
     encrypt      = true
