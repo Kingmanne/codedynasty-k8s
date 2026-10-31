@@ -1,32 +1,77 @@
-# Routes public HTTP traffic to the services: replaces API Gateway's three routes.
-# Traefik (built into k3s) listens on the node's port 80 and applies these rules.
+# How public traffic reaches the app. Traefik (built into k3s) applies these rules.
+#
+#   /api/signup  -> signup-api  (Traefik strips "/api", the service sees /signup)
+#   /api/login   -> login
+#   /api/users   -> list-users
+#   /api/config  -> list-users
+#   everything else -> frontend (React handles /signup, /login, /dashboard pages)
+#
+# The API sits under /api so its paths never clash with the website's pages.
+
+# A Traefik Middleware: removes "/api" from the path before passing the request on
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-api
+spec:
+  stripPrefix:
+    prefixes:
+      - /api
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: codedynasty-api
+  annotations:
+    # <namespace>-<middleware name>@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: codedynasty-strip-api@kubernetescrd
 spec:
   ingressClassName: traefik
   rules:
     - http:
         paths:
-          - path: /signup
+          - path: /api/signup
             pathType: Prefix
             backend:
               service:
                 name: signup-api
                 port:
                   number: 80
-          - path: /login
+          - path: /api/login
             pathType: Prefix
             backend:
               service:
                 name: login
                 port:
                   number: 80
-          - path: /users
+          - path: /api/users
             pathType: Prefix
             backend:
               service:
                 name: list-users
+                port:
+                  number: 80
+          - path: /api/config
+            pathType: Prefix
+            backend:
+              service:
+                name: list-users
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: codedynasty-web
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
                 port:
                   number: 80

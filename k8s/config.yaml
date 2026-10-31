@@ -13,3 +13,8 @@ data:
   AWS_REGION: eu-west-2
   SQS_QUEUE_URL: https://sqs.eu-west-2.amazonaws.com/371510064293/codedynasty-signup-queue
   ALLOWED_ORIGIN: http://localhost:5173
+  # Feature flags served at /api/config (replaces AWS AppConfig).
+  # Change to "true", run `kubectl apply -k k8s/`, then
+  # `kubectl rollout restart deployment/list-users -n codedynasty`.
+  FEATURE_MAINTENANCE_MODE: "false"
+  FEATURE_SHOW_NEW_BANNER: "false"

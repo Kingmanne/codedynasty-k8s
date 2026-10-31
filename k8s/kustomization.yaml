@@ -14,6 +14,7 @@ resources:
   - signup-worker/signup-worker.yaml
   - login/login.yaml
   - list-users/list-users.yaml
+  - frontend/frontend.yaml
   - ingress.yaml
 
 labels:
@@ -23,13 +24,16 @@ labels:
 images:
   - name: signup-api
     newName: 371510064293.dkr.ecr.eu-west-2.amazonaws.com/codedynasty/signup-api
-    newTag: v0.1.0
+    newTag: v0.2.0
   - name: signup-worker
     newName: 371510064293.dkr.ecr.eu-west-2.amazonaws.com/codedynasty/signup-worker
-    newTag: v0.1.0
+    newTag: v0.2.0
   - name: login
     newName: 371510064293.dkr.ecr.eu-west-2.amazonaws.com/codedynasty/login
-    newTag: v0.1.0
+    newTag: v0.2.0
   - name: list-users
     newName: 371510064293.dkr.ecr.eu-west-2.amazonaws.com/codedynasty/list-users
-    newTag: v0.1.0
+    newTag: v0.2.0
+  - name: frontend
+    newName: 371510064293.dkr.ecr.eu-west-2.amazonaws.com/codedynasty/frontend
+    newTag: v0.2.0

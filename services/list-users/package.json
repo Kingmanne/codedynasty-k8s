@@ -1,6 +1,6 @@
 {
   "name": "list-users",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "CodeDynasty list-users service: returns users without password hashes",
   "main": "src/index.js",
@@ -13,6 +13,7 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2",
     "pg": "^8.13.0"
   }
 }

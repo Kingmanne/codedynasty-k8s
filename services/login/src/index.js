@@ -1,13 +1,21 @@
-// login: checks an email and password against PostgreSQL.
+// login: checks an email and password against PostgreSQL and returns a login token.
 // Replaces the login Lambda.
 
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
 
 const PORT = Number(process.env.PORT || 3000);
+const JWT_SECRET = process.env.JWT_SECRET;
+const TOKEN_TTL = process.env.TOKEN_TTL || "12h";
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "http://localhost:5173";
+
+if (!JWT_SECRET) {
+  console.error(JSON.stringify({ level: "error", msg: "JWT_SECRET is not set" }));
+  process.exit(1);
+}
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -40,11 +48,15 @@ app.post("/login", async (req, res) => {
   if (typeof email !== "string" || typeof password !== "string") {
     return res.status(400).json({ message: "Email and password are required." });
   }
+  const cleanEmail = email.trim().toLowerCase();
 
   try {
-    const { rows } = await pool.query("SELECT password_hash FROM users WHERE email = $1", [
-      email.toLowerCase(),
-    ]);
+    // Users created before names were added get the part of their email before the @
+    const { rows } = await pool.query(
+      `SELECT email, COALESCE(name, split_part(email, '@', 1)) AS name, password_hash
+       FROM users WHERE email = $1`,
+      [cleanEmail]
+    );
 
     // Same message whether the email or the password is wrong, so attackers
     // can't use this endpoint to discover which emails are registered
@@ -53,7 +65,10 @@ app.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password." });
     }
 
-    return res.status(200).json({ message: "Login successful.", email: email.toLowerCase() });
+    const user = { name: rows[0].name, email: rows[0].email };
+    const token = jwt.sign(user, JWT_SECRET, { subject: user.email, expiresIn: TOKEN_TTL });
+
+    return res.status(200).json({ message: "Login successful.", user, token });
   } catch (err) {
     console.error(JSON.stringify({ level: "error", msg: "login failed", error: err.message }));
     return res.status(500).json({ message: "Could not process login. Please try again." });

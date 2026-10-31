@@ -1,12 +1,21 @@
-// list-users: returns all registered users, without password hashes.
-// Replaces the list-users Lambda. A SQL SELECT replaces the DynamoDB Scan.
+// list-users: returns all registered users (without password hashes) to
+// logged-in users, plus the app's feature flags.
+// Replaces the list-users Lambda (a SQL SELECT replaces the DynamoDB Scan)
+// and AWS AppConfig (flags now come from a Kubernetes ConfigMap).
 
 const express = require("express");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
 
 const PORT = Number(process.env.PORT || 3000);
+const JWT_SECRET = process.env.JWT_SECRET;
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "http://localhost:5173";
+
+if (!JWT_SECRET) {
+  console.error(JSON.stringify({ level: "error", msg: "JWT_SECRET is not set" }));
+  process.exit(1);
+}
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -31,14 +40,39 @@ app.get("/ready", async (req, res) => {
   }
 });
 
-app.get("/users", async (req, res) => {
+// Feature flags, read by the frontend every 30 seconds.
+// Change them in k8s/config.yaml and re-apply: no rebuild needed.
+app.get("/config", (req, res) => {
+  res.json({
+    maintenance_mode: process.env.FEATURE_MAINTENANCE_MODE === "true",
+    show_new_banner: process.env.FEATURE_SHOW_NEW_BANNER === "true",
+  });
+});
+
+// Only logged-in users may see the member list
+function requireAuth(req, res, next) {
+  const header = req.headers.authorization || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+  if (!token) {
+    return res.status(401).json({ message: "Please sign in." });
+  }
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    return next();
+  } catch {
+    return res.status(401).json({ message: "Your session has expired. Please sign in again." });
+  }
+}
+
+app.get("/users", requireAuth, async (req, res) => {
   try {
     // Only select the columns we return: the password hash never leaves the database
     const { rows } = await pool.query(
-      "SELECT email, created_at FROM users ORDER BY created_at DESC LIMIT 1000"
+      `SELECT email, COALESCE(name, split_part(email, '@', 1)) AS name, created_at
+       FROM users ORDER BY created_at DESC LIMIT 1000`
     );
     return res.json({
-      users: rows.map((r) => ({ email: r.email, createdAt: r.created_at.toISOString() })),
+      users: rows.map((r) => ({ name: r.name, email: r.email, createdAt: r.created_at.toISOString() })),
     });
   } catch (err) {
     console.error(JSON.stringify({ level: "error", msg: "list users failed", error: err.message }));

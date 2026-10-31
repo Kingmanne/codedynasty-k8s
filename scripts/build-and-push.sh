@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Builds all four service images for the EC2 node (linux/amd64) and pushes them to ECR.
+# Builds all five images (four services + the frontend) for the EC2 node (linux/amd64) and pushes them to ECR.
 # Usage: ./scripts/build-and-push.sh v0.1.0
 # Tags are immutable in ECR, so use a new tag every time (v0.1.1, v0.1.2, ...).
 set -euo pipefail
 
 TAG="${1:?Usage: ./scripts/build-and-push.sh <tag>, for example v0.1.0}"
 REGION="eu-west-2"
-SERVICES="signup-api signup-worker login list-users"
+SERVICES="signup-api signup-worker login list-users frontend"
 
 ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
 REGISTRY="$ACCOUNT.dkr.ecr.$REGION.amazonaws.com"
@@ -19,7 +19,8 @@ for SERVICE in $SERVICES; do
   echo ""
   echo "=== Building $IMAGE"
   # --platform linux/amd64: your Mac is ARM, the t3.medium node is x86
-  docker buildx build --platform linux/amd64 --tag "$IMAGE" --push "services/$SERVICE"
+  if [ "$SERVICE" = "frontend" ]; then CONTEXT="frontend"; else CONTEXT="services/$SERVICE"; fi
+  docker buildx build --platform linux/amd64 --tag "$IMAGE" --push "$CONTEXT"
 done
 
 echo ""

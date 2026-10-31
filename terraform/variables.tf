@@ -40,7 +40,7 @@ variable "root_volume_gb" {
 variable "ecr_repositories" {
   description = "One ECR repository per service"
   type        = list(string)
-  default     = ["signup-api", "signup-worker", "login", "list-users"]
+  default     = ["signup-api", "signup-worker", "login", "list-users", "frontend"]
 }
 
 variable "ecr_credential_provider_version" {

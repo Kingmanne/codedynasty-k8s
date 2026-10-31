@@ -40,10 +40,10 @@ async function handleMessage(message) {
 
   // ON CONFLICT: signing up twice with the same email is not an error
   const result = await pool.query(
-    `INSERT INTO users (email, password_hash, created_at)
-     VALUES ($1, $2, COALESCE($3::timestamptz, now()))
+    `INSERT INTO users (email, name, password_hash, created_at)
+     VALUES ($1, $2, $3, COALESCE($4::timestamptz, now()))
      ON CONFLICT (email) DO NOTHING`,
-    [body.email, body.passwordHash, body.requestedAt || null]
+    [body.email, body.name || null, body.passwordHash, body.requestedAt || null]
   );
 
   console.log(
@@ -109,9 +109,36 @@ const healthServer = http.createServer(async (req, res) => {
   res.end();
 });
 
+// Bring the table up to date before processing anything.
+// Safe to run every start: each statement does nothing if already applied.
+async function migrate() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      email         TEXT PRIMARY KEY,
+      password_hash TEXT        NOT NULL,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`);
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT"); // v0.2.0
+}
+
+async function start() {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await migrate();
+      console.log(JSON.stringify({ level: "info", msg: "database schema up to date" }));
+      break;
+    } catch (err) {
+      // PostgreSQL may still be starting: wait and retry
+      console.error(JSON.stringify({ level: "warn", msg: "migration failed, retrying", attempt, error: err.message }));
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+  }
+  pollLoop();
+}
+
 healthServer.listen(HEALTH_PORT, () => {
   console.log(JSON.stringify({ level: "info", msg: `signup-worker started, health on ${HEALTH_PORT}` }));
-  pollLoop();
+  start();
 });
 
 // Finish the current message, then stop
